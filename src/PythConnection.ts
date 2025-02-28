@@ -131,9 +131,11 @@ export class PythConnection {
     // Handle all accounts once since we need to handle product accounts
     // at least once
     this.accountsIds.forEach((accountId, i) => {
-      if (accounts[i] === null) return;
+      const acc = accounts[i];
 
-      this.handleAccount(accountId, accounts[i], true, currentSlot)
+      if (acc === null) return;
+
+      this.handleAccount(accountId, acc, true, currentSlot)
 
       this.connection.onAccountChange(
         accountId,
