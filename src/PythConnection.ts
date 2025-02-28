@@ -134,6 +134,8 @@ export class PythConnection {
 
         console.log('Filtered Accounts:', validAccounts);
 
+        if (!validAccounts) return;
+
         // Process only necessary accounts
         for (const { pubkey, account } of validAccounts) {
             this.handleAccount(pubkey, account, true, currentSlot);
