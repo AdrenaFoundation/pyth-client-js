@@ -111,6 +111,7 @@ export class PythConnection {
     commitment: Commitment = 'finalized',
     feedIds?: PublicKey[],
   ) {
+    console.log('>> Constructor!', feedIds);
     this.connection = connection
     this.pythProgramKey = pythProgramKey
     this.commitment = commitment
@@ -123,6 +124,8 @@ export class PythConnection {
   public async start() {
     const currentSlot = await this.connection.getSlot(this.commitment);
 
+    console.log('>>> In the start', this.feedIds);
+
     if (this.feedIds) {
         // Directly fetch only the necessary accounts
         const accountsInfo = await this.connection.getMultipleAccountsInfo(this.feedIds, this.commitment);
@@ -132,7 +135,7 @@ export class PythConnection {
             .map((pubkey, index) => accountsInfo[index] ? { pubkey, account: accountsInfo[index] } : null)
             .filter((account) => account !== null);
 
-        console.log('Filtered Accounts:', validAccounts);
+        console.log('>> Filtered Accounts:', validAccounts);
 
         if (!validAccounts) return;
 
@@ -149,6 +152,8 @@ export class PythConnection {
             );
         }
     } else {
+        console.log('Take it all!');
+
         // If no specific feeds are set, fallback to monitoring all program accounts
         const accounts = await this.connection.getProgramAccounts(this.pythProgramKey, this.commitment);
 
