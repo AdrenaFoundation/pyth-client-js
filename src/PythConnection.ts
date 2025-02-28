@@ -121,42 +121,48 @@ export class PythConnection {
    *  each time a Pyth price account is updated.
    */
   public async start() {
-    const accSlotProm = await Promise.all([
-      this.connection.getProgramAccounts(this.pythProgramKey, this.commitment),
-      this.connection.getSlot(this.commitment),
-    ])
-    let accounts = accSlotProm[0]
-    const currentSlot = accSlotProm[1]
-    // Handle all accounts once since we need to handle product accounts
-    // at least once
-    for (const account of accounts) {
-      this.handleAccount(account.pubkey, account.account, true, currentSlot)
-    }
+    const currentSlot = await this.connection.getSlot(this.commitment);
 
     if (this.feedIds) {
-      // Filter down to only the feeds we want
-      const rawIDs = this.feedIds.map((feed) => feed.toString())
-      accounts = accounts.filter((feed) => rawIDs.includes(feed.pubkey.toString()))
-      for (const account of accounts) {
-        this.connection.onAccountChange(
-          account.pubkey,
+        // Directly fetch only the necessary accounts
+        const accountsInfo = await this.connection.getMultipleAccountsInfo(this.feedIds, this.commitment);
+        
+        // Filter out null responses (in case some accounts don't exist)
+        const validAccounts = this.feedIds
+            .map((pubkey, index) => accountsInfo[index] ? { pubkey, account: accountsInfo[index] } : null)
+            .filter((account) => account !== null);
 
-          (accountInfo, context) => {
-            this.handleAccount(account.pubkey, accountInfo, false, context.slot)
-          },
-          this.commitment,
-        )
-      }
+        console.log('Filtered Accounts:', validAccounts);
+
+        // Process only necessary accounts
+        for (const { pubkey, account } of validAccounts) {
+            this.handleAccount(pubkey, account, true, currentSlot);
+
+            this.connection.onAccountChange(
+                pubkey,
+                (accountInfo, context) => {
+                    this.handleAccount(pubkey, accountInfo, false, context.slot);
+                },
+                this.commitment,
+            );
+        }
     } else {
-      this.connection.onProgramAccountChange(
-        this.pythProgramKey,
-        (keyedAccountInfo, context) => {
-          this.handleAccount(keyedAccountInfo.accountId, keyedAccountInfo.accountInfo, false, context.slot)
-        },
-        this.commitment,
-      )
+        // If no specific feeds are set, fallback to monitoring all program accounts
+        const accounts = await this.connection.getProgramAccounts(this.pythProgramKey, this.commitment);
+
+        for (const account of accounts) {
+            this.handleAccount(account.pubkey, account.account, true, currentSlot);
+        }
+
+        this.connection.onProgramAccountChange(
+            this.pythProgramKey,
+            (keyedAccountInfo, context) => {
+                this.handleAccount(keyedAccountInfo.accountId, keyedAccountInfo.accountInfo, false, context.slot);
+            },
+            this.commitment,
+        );
     }
-  }
+}
 
   /** Register callback to receive price updates. */
   public onPriceChange(callback: PythPriceCallback) {
