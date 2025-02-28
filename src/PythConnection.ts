@@ -133,7 +133,10 @@ export class PythConnection {
         // Filter out null responses (in case some accounts don't exist)
         const validAccounts = this.feedIds
             .map((pubkey, index) => accountsInfo[index] ? { pubkey, account: accountsInfo[index] } : null)
-            .filter((account) => account !== null);
+            .filter((account) => account !== null) as {
+              pubkey: PublicKey;
+              account: AccountInfo<Buffer>;
+            }[];
 
         console.log('>> Filtered Accounts:', validAccounts);
 
