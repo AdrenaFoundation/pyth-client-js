@@ -30,7 +30,7 @@ export class PythConnection {
   connection: Connection
   pythProgramKey: PublicKey
   commitment: Commitment
-  accountsIds: PublicKey[]
+  feedIds: PublicKey[]
 
   productAccountKeyToProduct: Record<string, AccountUpdate<ProductData>> = {}
   priceAccountKeyToProductAccountKey: Record<string, string> = {}
@@ -109,12 +109,12 @@ export class PythConnection {
     connection: Connection,
     pythProgramKey: PublicKey,
     commitment: Commitment = 'finalized',
-    accountsIds: PublicKey[],
+    feedIds: PublicKey[],
   ) {
     this.connection = connection
     this.pythProgramKey = pythProgramKey
     this.commitment = commitment
-    this.accountsIds = accountsIds
+    this.feedIds = feedIds
   }
 
   /** Start receiving price updates. Once this method is called, any registered callbacks will be invoked
@@ -122,7 +122,7 @@ export class PythConnection {
    */
   public async start() {
     const accSlotProm = await Promise.all([
-      this.connection.getMultipleAccountsInfo(this.accountsIds, this.commitment),
+      this.connection.getMultipleAccountsInfo(this.feedIds, this.commitment),
       this.connection.getSlot(this.commitment),
     ])
 
@@ -130,7 +130,7 @@ export class PythConnection {
     const currentSlot = accSlotProm[1]
     // Handle all accounts once since we need to handle product accounts
     // at least once
-    this.accountsIds.forEach((accountId, i) => {
+    this.feedIds.forEach((accountId, i) => {
       const acc = accounts[i];
 
       if (acc === null) return;
