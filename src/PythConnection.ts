@@ -30,7 +30,8 @@ export class PythConnection {
   connection: Connection
   pythProgramKey: PublicKey
   commitment: Commitment
-  feedIds?: PublicKey[]
+  feedIds: PublicKey[]
+  productIds: PublicKey[]
 
   productAccountKeyToProduct: Record<string, AccountUpdate<ProductData>> = {}
   priceAccountKeyToProductAccountKey: Record<string, string> = {}
@@ -109,53 +110,96 @@ export class PythConnection {
     connection: Connection,
     pythProgramKey: PublicKey,
     commitment: Commitment = 'finalized',
-    feedIds?: PublicKey[],
+    feedIds: PublicKey[],
+    productIds: PublicKey[],
   ) {
     this.connection = connection
     this.pythProgramKey = pythProgramKey
     this.commitment = commitment
     this.feedIds = feedIds
+    this.productIds = productIds
   }
+
+  // public async start() {
+  //   const accSlotProm = await Promise.all([
+  //     this.connection.getProgramAccounts(this.pythProgramKey, this.commitment),
+  //     this.connection.getSlot(this.commitment),
+  //   ])
+  //   let accounts = accSlotProm[0]
+  //   const currentSlot = accSlotProm[1]
+  //   // Handle all accounts once since we need to handle product accounts
+  //   // at least once
+  //   for (const account of accounts) {
+  //     this.handleAccount(account.pubkey, account.account, true, currentSlot)
+  //   }
+
+  //   if (this.feedIds) {
+  //     // Filter down to only the feeds we want
+  //     const rawIDs = this.feedIds.map((feed) => feed.toString())
+  //     accounts = accounts.filter((feed) => rawIDs.includes(feed.pubkey.toString()))
+
+  //     console.log('ACCOUNTS', accounts);
+
+
+  //     for (const account of accounts) {
+  //       this.connection.onAccountChange(
+  //         account.pubkey,
+
+  //         (accountInfo, context) => {
+  //           this.handleAccount(account.pubkey, accountInfo, false, context.slot)
+  //         },
+  //         this.commitment,
+  //       )
+  //     }
+  //   } else {
+  //     this.connection.onProgramAccountChange(
+  //       this.pythProgramKey,
+  //       (keyedAccountInfo, context) => {
+  //         this.handleAccount(keyedAccountInfo.accountId, keyedAccountInfo.accountInfo, false, context.slot)
+  //       },
+  //       this.commitment,
+  //     )
+  //   }
+  // }
 
   /** Start receiving price updates. Once this method is called, any registered callbacks will be invoked
    *  each time a Pyth price account is updated.
    */
   public async start() {
     const accSlotProm = await Promise.all([
-      this.connection.getProgramAccounts(this.pythProgramKey, this.commitment),
+      this.connection.getMultipleAccountsInfo([...this.feedIds, ...this.productIds], this.commitment),
       this.connection.getSlot(this.commitment),
     ])
+
     let accounts = accSlotProm[0]
     const currentSlot = accSlotProm[1]
+
+    // Register products accounts
+    this.productIds.forEach((productId, i) => {
+      const acc = accounts[i + this.feedIds.length];
+
+      if (acc === null) return;
+
+      this.handleAccount(productId, acc, true, currentSlot)
+    });
+
     // Handle all accounts once since we need to handle product accounts
     // at least once
-    for (const account of accounts) {
-      this.handleAccount(account.pubkey, account.account, true, currentSlot)
-    }
+    this.feedIds.forEach((accountId, i) => {
+      const acc = accounts[i];
 
-    if (this.feedIds) {
-      // Filter down to only the feeds we want
-      const rawIDs = this.feedIds.map((feed) => feed.toString())
-      accounts = accounts.filter((feed) => rawIDs.includes(feed.pubkey.toString()))
-      for (const account of accounts) {
-        this.connection.onAccountChange(
-          account.pubkey,
+      if (acc === null) return;
 
-          (accountInfo, context) => {
-            this.handleAccount(account.pubkey, accountInfo, false, context.slot)
-          },
-          this.commitment,
-        )
-      }
-    } else {
-      this.connection.onProgramAccountChange(
-        this.pythProgramKey,
-        (keyedAccountInfo, context) => {
-          this.handleAccount(keyedAccountInfo.accountId, keyedAccountInfo.accountInfo, false, context.slot)
+      this.handleAccount(accountId, acc, true, currentSlot)
+
+      this.connection.onAccountChange(
+        accountId,
+        (accountInfo, context) => {
+          this.handleAccount(accountId, accountInfo, false, context.slot)
         },
         this.commitment,
       )
-    }
+    });
   }
 
   /** Register callback to receive price updates. */

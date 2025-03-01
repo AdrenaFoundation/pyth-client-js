@@ -5,7 +5,7 @@ const PYTHNET_CLUSTER_NAME: PythCluster = 'pythnet'
 const connection = new Connection(getPythClusterApiUrl(PYTHNET_CLUSTER_NAME))
 const pythPublicKey = getPythProgramKeyForCluster(PYTHNET_CLUSTER_NAME)
 
-const pythConnection = new PythConnection(connection, pythPublicKey)
+const pythConnection = new PythConnection(connection, pythPublicKey, "finalized", [], [])
 pythConnection.onPriceChangeVerbose((productAccount, priceAccount) => {
   // The arguments to the callback include solana account information / the update slot if you need it.
   const product = productAccount.accountInfo.data.product
